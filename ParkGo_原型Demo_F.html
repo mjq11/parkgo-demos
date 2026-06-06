@@ -1,0 +1,805 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=375, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>ParkGo 园游记 - 极致沉浸版 (Demo F)</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+    --primary: #6b705c; /* 莫兰迪苔绿 */
+    --primary-dark: #3f4238;
+    --primary-light: #f4f4f0;
+    --accent: #b7b7a4; /* 暖灰泥 */
+    --accent-light: #ffe8d6; /* 浅柔杏 */
+    --bg: #faf8f5; /* 暖米白色 */
+    --card: #ffffff;
+    --text: #2f3e36; /* 深松针绿 */
+    --text-sec: #586f61; /* 中苔绿 */
+    --text-light: #a3b19b;
+    --border: #f2ede4;
+    --shadow: 0 4px 20px rgba(107, 112, 92, 0.04);
+    --shadow-lg: 0 16px 40px rgba(107, 112, 92, 0.08);
+}
+
+* { margin: 0; padding: 0; box-sizing: border-box; }
+
+body {
+    font-family: 'Noto Sans SC', -apple-system, 'PingFang SC', sans-serif;
+    background: linear-gradient(135deg, #e5e5e0 0%, #f5f5f0 50%, #e5e5e0 100%);
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    min-height: 100vh;
+    padding: 30px 20px;
+    -webkit-font-smoothing: antialiased;
+}
+
+/* ===== 手机外壳 ===== */
+.phone-frame {
+    width: 375px;
+    height: 812px;
+    background: var(--bg);
+    border-radius: 44px;
+    box-shadow: 0 0 0 3px #2d2d2d, 0 0 0 6px #1a1a1a, 0 0 0 8px #0d0d0d,
+                0 30px 60px rgba(107, 112, 92, 0.2), inset 0 0 10px rgba(0,0,0,0.02);
+    overflow: hidden;
+    position: relative;
+    border: 1px solid rgba(0,0,0,0.04);
+}
+
+.notch {
+    width: 126px; height: 30px;
+    background: #0d0d0d;
+    border-radius: 0 0 16px 16px;
+    position: absolute; top: 0; left: 50%; transform: translateX(-50%);
+    z-index: 110;
+    display: flex; align-items: center; justify-content: center;
+}
+.notch::after { content:''; width:8px; height:8px; border-radius:50%; background:#6b705c; margin-top:4px; }
+
+/* 极致沉浸：状态栏通顶并悬浮 */
+.status-bar {
+    position: absolute; top: 0; left: 0; right: 0;
+    height: 48px; padding: 0 28px;
+    display: flex; align-items: flex-end; justify-content: space-between;
+    font-size: 13px; font-weight: 500;
+    padding-bottom: 4px;
+    z-index: 100;
+    pointer-events: none;
+    color: #fff; /* 初始为大图白字 */
+}
+.status-icons { display:flex; gap:3px; font-size:12px; }
+
+/* ===== 页面容器 ===== */
+.page {
+    display: none;
+    height: calc(812px - 68px); /* 去除Header，大图可通顶 */
+    overflow-y: auto;
+    overflow-x: hidden;
+    background: var(--bg);
+    scroll-behavior: smooth;
+}
+.page::-webkit-scrollbar { display:none; }
+.page.active { display: block; }
+
+/* ===== Tab栏 ===== */
+.tab-bar {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    height: 68px;
+    background: rgba(250,248,245,0.88);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    display: flex; align-items: center; justify-content: space-around;
+    border-top: 0.5px solid rgba(107, 112, 92, 0.08);
+    padding-bottom: 12px;
+    z-index: 95;
+}
+
+.tab-item {
+    display: flex; flex-direction: column; align-items: center; gap: 2px;
+    cursor: pointer; transition: all 0.25s;
+    padding: 4px 16px;
+}
+.tab-item .icon { font-size: 20px; transition: transform 0.2s; color: var(--text-light); }
+.tab-item .label { font-size: 9px; color: var(--text-light); font-weight: 500; }
+.tab-item.active .icon { transform: scale(1.1); color: var(--primary); }
+.tab-item.active .label { color: var(--primary); font-weight: 600; }
+
+/* ===== 首页：沉浸大图与视差滚动结构 ===== */
+.home-hero-bg {
+    height: 420px; width: 100%; position: sticky; top: 0; z-index: 1; overflow: hidden;
+}
+.home-banner-track {
+    display: flex; height: 100%; transition: transform 0.6s cubic-bezier(0.25, 1, 0.5, 1);
+}
+.home-banner-slide {
+    min-width: 100%; height: 100%; position: relative;
+}
+.home-banner-slide img {
+    width: 100%; height: 100%; object-fit: cover;
+}
+.home-banner-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, rgba(0,0,0,0.05) 50%, rgba(0,0,0,0.45) 100%);
+}
+
+/* 极致沉浸：悬浮气泡 HUD 位置 */
+.float-loc-bar {
+    position: absolute; top: 58px; left: 16px;
+    background: rgba(255, 255, 255, 0.2);
+    backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    padding: 6px 14px; border-radius: 20px;
+    color: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.05); z-index: 10;
+}
+.float-loc-bar .arrow { font-size: 9px; opacity: 0.8; margin-left: 2px; }
+
+/* 极致沉浸：大图悬浮标题 */
+.float-hero-title {
+    position: absolute; bottom: 70px; left: 20px; right: 20px;
+    color: #fff; text-shadow: 0 2px 10px rgba(0,0,0,0.2); z-index: 10;
+}
+.float-hero-title span { font-size: 10px; text-transform: uppercase; letter-spacing: 2px; font-weight: 600; opacity: 0.9; }
+.float-hero-title h2 { font-size: 22px; font-weight: 700; margin-top: 4px; letter-spacing: 0.5px; }
+
+/* 极致沉浸：浮动分类胶囊 HUD */
+.float-cat-bar {
+    position: absolute; bottom: 18px; left: 16px; right: 16px;
+    height: 44px; background: rgba(255, 255, 255, 0.16);
+    backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 22px; display: flex; justify-content: space-around;
+    align-items: center; z-index: 10; box-shadow: 0 8px 24px rgba(0,0,0,0.06);
+}
+.float-cat-pill {
+    font-size: 11px; color: #fff; font-weight: 600; cursor: pointer;
+    padding: 6px 14px; border-radius: 14px; transition: background 0.2s;
+}
+.float-cat-pill:active { background: rgba(255,255,255,0.15); }
+
+.home-banner-dots {
+    position: absolute; top: 64px; right: 20px;
+    display: flex; gap: 4px; z-index: 10;
+}
+.home-banner-dots span {
+    width: 4px; height: 4px; border-radius: 50%; background: rgba(255,255,255,0.4);
+}
+.home-banner-dots span.active { background: #fff; width: 12px; border-radius: 2px; }
+
+/* 极致沉浸：层叠滚动内容抽屉 */
+.home-content-drawer {
+    position: relative; z-index: 5; margin-top: -32px;
+    background: var(--bg); border-radius: 32px 32px 0 0;
+    padding-top: 24px; box-shadow: 0 -10px 40px rgba(107, 112, 92, 0.08);
+}
+
+/* ===== 故事化画报式长卷轴 (Editorial Stream) ===== */
+.editorial-stream {
+    padding: 0 16px 20px;
+}
+.editorial-header {
+    font-size: 15px; font-weight: 700; color: var(--text); margin-bottom: 20px; letter-spacing: 0.5px;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.editorial-header span { font-size: 11px; font-weight: 400; color: var(--text-light); }
+
+.story-card {
+    margin-bottom: 34px; display: flex; flex-direction: column; cursor: pointer;
+}
+.story-quote {
+    font-family: Georgia, serif; font-style: italic; font-size: 12px;
+    color: var(--text-sec); margin-bottom: 8px; border-left: 2px solid var(--accent);
+    padding-left: 8px; line-height: 1.4;
+}
+.story-title {
+    font-size: 16px; font-weight: 700; color: var(--text); margin-bottom: 6px; letter-spacing: 0.5px;
+}
+/* 双图错落拼贴 */
+.story-collage {
+    display: flex; align-items: flex-end; gap: 12px; margin: 10px 0; position: relative;
+}
+.collage-main {
+    width: 70%; height: 160px; border-radius: 20px; object-fit: cover;
+    box-shadow: var(--shadow);
+}
+.collage-sub {
+    width: 30%; height: 95px; border-radius: 14px; object-fit: cover;
+    box-shadow: var(--shadow-lg); transform: translateY(-10px);
+}
+.story-desc {
+    font-size: 11px; color: var(--text-sec); line-height: 1.6; margin-top: 6px;
+}
+.story-footer {
+    display: flex; justify-content: space-between; align-items: center; margin-top: 10px;
+    border-top: 0.5px solid var(--border); padding-top: 8px;
+}
+.story-price { font-size: 15px; font-weight: 700; color: var(--primary-dark); }
+.story-price .yen { font-size: 11px; }
+.story-action {
+    font-size: 11px; color: var(--primary); font-weight: 600; display: flex; align-items: center; gap: 2px;
+}
+
+/* 行2：横向极致沉浸卡片 */
+.story-card-full {
+    margin-bottom: 34px; border-radius: 24px; overflow: hidden; position: relative;
+    height: 180px; box-shadow: var(--shadow); cursor: pointer;
+}
+.story-card-full img { width: 100%; height: 100%; object-fit: cover; }
+.story-full-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(47,62,54,0.65) 100%);
+    display: flex; flex-direction: column; justify-content: space-between; padding: 16px; color: #fff;
+}
+.story-full-overlay .tag { font-size: 9px; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; }
+.story-full-bottom { display: flex; justify-content: space-between; align-items: flex-end; }
+.story-full-bottom h4 { font-size: 15px; font-weight: 700; }
+.story-full-bottom .price { font-size: 15px; font-weight: 700; color: #fde047; }
+.story-full-bottom .price .yen { font-size: 11px; }
+
+/* ===== 营地详情页 (大图与Bottom Sheet套餐抽屉) ===== */
+.detail-hero {
+    height: 380px; position: relative;
+}
+.detail-hero img { width: 100%; height: 100%; object-fit: cover; }
+.detail-hero-overlay {
+    position: absolute; inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.3) 0%, transparent 40%, rgba(250,248,245,0.95) 95%);
+}
+.detail-back {
+    position: absolute; top: 58px; left: 16px; width: 34px; height: 34px; border-radius: 50%;
+    background: rgba(255, 255, 255, 0.25); display: flex; align-items: center; justify-content: center;
+    color: #fff; cursor: pointer; font-size: 18px; backdrop-filter: blur(16px);
+    border: 1px solid rgba(255,255,255,0.25); z-index: 10;
+}
+.detail-intro-card {
+    position: absolute; bottom: 40px; left: 16px; right: 16px;
+}
+.detail-intro-card h2 { font-size: 22px; font-weight: 700; color: var(--text); }
+.detail-intro-card .loc { font-size: 11px; color: var(--text-sec); margin-top: 4px; }
+.detail-intro-card .tags { display: flex; gap: 6px; margin-top: 8px; }
+.detail-intro-card .tags span { font-size: 10px; background: rgba(107, 112, 92, 0.08); color: var(--primary); padding: 3px 8px; border-radius: 8px; }
+
+.detail-scroll-content {
+    background: var(--bg); padding: 0 16px; margin-top: -30px; position: relative; z-index: 5;
+}
+.intro-text-section {
+    padding: 16px 0; border-bottom: 0.5px solid var(--border);
+}
+.intro-text-section h4 { font-size: 13px; font-weight: 700; color: var(--text); }
+.intro-text-section p { font-size: 11px; color: var(--text-sec); line-height: 1.6; margin-top: 6px; }
+
+.btn-open-reserve {
+    display: block; width: 100%; margin-top: 16px; padding: 12px;
+    background: var(--primary); color: #fff; border: none; border-radius: 16px;
+    font-size: 14px; font-weight: 600; cursor: pointer; text-align: center;
+    box-shadow: 0 4px 16px rgba(107,112,92,0.15);
+}
+
+/* Bottom Sheet 预定抽屉 */
+.sheet-overlay {
+    display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.35); z-index: 100;
+    animation: fadeIn 0.3s;
+}
+.sheet-overlay.show { display: block; }
+.bottom-sheet {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 390px;
+    background: rgba(255, 255, 255, 0.88); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px);
+    border-radius: 28px 28px 0 0; border-top: 1px solid rgba(255,255,255,0.4);
+    box-shadow: 0 -8px 32px rgba(107, 112, 92, 0.08); z-index: 105;
+    transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    padding: 16px 16px 80px;
+}
+.bottom-sheet.show { transform: translateY(0); }
+
+.sheet-handle-bar {
+    width: 36px; height: 4px; background: rgba(107, 112, 92, 0.15); border-radius: 2px;
+    margin: 0 auto 16px; cursor: pointer;
+}
+.sheet-header {
+    display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;
+}
+.sheet-header h3 { font-size: 14px; font-weight: 700; color: var(--text); }
+.sheet-header .close { font-size: 18px; color: var(--text-light); cursor: pointer; }
+
+/* 套餐卡片横滑 */
+.sheet-pkg-carousel {
+    display: flex; gap: 10px; overflow-x: auto; padding: 4px 0 10px;
+}
+.sheet-pkg-carousel::-webkit-scrollbar { display: none; }
+.sheet-pkg-card {
+    min-width: 210px; background: rgba(255, 255, 255, 0.7); border-radius: 18px; padding: 14px;
+    border: 1.5px solid var(--border); cursor: pointer; transition: all 0.2s;
+}
+.sheet-pkg-card.selected {
+    border-color: var(--primary); background: rgba(255, 255, 255, 0.95);
+    box-shadow: 0 4px 16px rgba(107, 112, 92, 0.06);
+}
+.sheet-pkg-card h5 { font-size: 13px; font-weight: 700; color: var(--text); }
+.sheet-pkg-card p { font-size: 10px; color: var(--text-sec); margin-top: 3px; line-height: 1.4; }
+.sheet-pkg-bottom {
+    display: flex; justify-content: space-between; align-items: flex-end; margin-top: 10px;
+}
+.sheet-pkg-bottom .price { font-size: 16px; font-weight: 700; color: var(--primary-dark); }
+.sheet-pkg-bottom .price .yen { font-size: 11px; }
+
+.sheet-action-bar {
+    position: absolute; bottom: 0; left: 0; right: 0; height: 72px;
+    border-top: 0.5px solid var(--border); display: flex; align-items: center;
+    justify-content: space-between; padding: 0 16px; background: rgba(255, 255, 255, 0.92);
+    backdrop-filter: blur(10px);
+}
+.sheet-action-bar .total { font-size: 11px; color: var(--text-sec); }
+.sheet-action-bar .total .price { font-size: 20px; font-weight: 700; color: var(--primary-dark); }
+.sheet-action-bar .total .price .yen { font-size: 12px; }
+
+/* ===== 企业团建/研学/餐食/个人 基础样式微调 ===== */
+.page-nav { background: var(--card); padding: 58px 16px 10px; display: flex; align-items: center; gap: 12px; border-bottom: 0.5px solid var(--border); }
+.page-nav .back { cursor: pointer; font-size: 20px; color: var(--text); }
+.page-nav h3 { font-size: 16px; font-weight: 600; color: var(--text); }
+.tab-nav { display: flex; background: var(--card); padding: 0 16px; border-bottom: 0.5px solid var(--border); overflow-x: auto; }
+.tab-nav::-webkit-scrollbar { display:none; }
+.tab-nav-item { padding: 10px 14px; font-size: 12px; color: var(--text-light); font-weight: 500; cursor: pointer; border-bottom: 2px solid transparent; transition: all 0.2s; white-space: nowrap; }
+.tab-nav-item.active { color: var(--primary); font-weight: 600; border-bottom-color: var(--primary); }
+
+.team-card { margin: 12px 16px; background: var(--card); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); border: 1.5px solid var(--border); cursor: pointer; }
+.team-card .card-img { height: 130px; }
+.team-card .card-img img { width:100%; height:100%; object-fit:cover; }
+.team-card .card-info { padding: 12px 16px; }
+.team-card .card-info h4 { font-size: 13px; font-weight: 600; color: var(--text); }
+.team-tags { display:flex; gap:6px; margin-top:6px; }
+.team-tags span { padding: 2px 8px; border-radius: 6px; font-size: 9px; font-weight: 500; }
+.btn-consult { display: block; margin: 12px 16px; padding: 13px; background: var(--primary); color: #fff; border: none; border-radius: 20px; font-size: 14px; font-weight: 600; cursor: pointer; width: calc(100% - 32px); box-shadow: 0 4px 16px rgba(107,112,92,0.12); }
+
+.member-card { margin: 14px 16px; background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); border-radius: 20px; padding: 18px 16px; color: #fff; position: relative; overflow: hidden; box-shadow: var(--shadow-lg); }
+.member-card h4 { font-size: 16px; font-weight: 700; }
+.member-card p { font-size: 11px; opacity: 0.8; margin: 4px 0 12px; }
+.member-card .prices { display: flex; gap: 8px; }
+.price-tag { background: rgba(255,255,255,0.15); padding: 6px 14px; border-radius: 20px; font-size: 11px; font-weight: 500; cursor: pointer; border: 1px solid rgba(255,255,255,0.1); }
+
+.activity-card { margin: 0 16px 10px; background: var(--card); border-radius: 20px; overflow: hidden; display: flex; gap: 0; cursor: pointer; border: 1.5px solid var(--border); box-shadow: var(--shadow); }
+.act-img { width: 110px; height: 100px; flex-shrink: 0; overflow: hidden; }
+.act-img img { width:100%; height:100%; object-fit:cover; }
+.act-info { flex: 1; padding: 10px 12px; display: flex; flex-direction: column; justify-content: space-between; }
+.act-info h5 { font-size: 12px; font-weight: 600; color: var(--text); }
+.act-info .desc { font-size: 11px; color: var(--text-sec); }
+.act-bottom { display: flex; justify-content: space-between; align-items: center; }
+.act-bottom .price { font-size: 14px; font-weight: 700; color: var(--primary); }
+.free-tag { font-size: 9px; background: var(--accent-light); color: var(--primary-dark); padding: 2px 6px; border-radius: 4px; font-weight: 600; margin-left: 4px; }
+.btn-sm { font-size: 11px; background: var(--primary); color: #fff; border: none; padding: 5px 14px; border-radius: 14px; cursor: pointer; }
+
+.food-card { margin: 0 16px 10px; background: var(--card); border-radius: 20px; overflow: hidden; cursor: pointer; box-shadow: var(--shadow); border: 1.5px solid var(--border); }
+.food-img { height: 120px; overflow: hidden; }
+.food-img img { width:100%; height:100%; object-fit:cover; }
+.food-info { padding: 10px 14px; display: flex; justify-content: space-between; align-items: center; }
+.food-info div h5 { font-size: 13px; font-weight: 600; color: var(--text); }
+.food-info div .sub { font-size: 11px; color: var(--text-sec); margin-top: 2px; }
+.food-info .price { font-size: 16px; font-weight: 700; color: var(--primary); }
+.food-tip { padding: 8px 16px; text-align: center; font-size: 11px; color: var(--text-sec); }
+
+.profile-hero { background: linear-gradient(135deg, var(--primary) 0%, var(--primary-dark) 100%); padding: 58px 16px 40px; color: #fff; text-align: center; position: relative; overflow: hidden; }
+.avatar { width: 64px; height: 64px; border-radius: 50%; background: rgba(255,255,255,0.15); margin: 0 auto 10px; display: flex; align-items: center; justify-content: center; font-size: 28px; border: 3px solid rgba(255,255,255,0.25); }
+.profile-hero .name { font-size: 16px; font-weight: 600; }
+.member-badge { display: inline-block; margin-top: 6px; background: rgba(255,255,255,0.18); padding: 3px 12px; border-radius: 12px; font-size: 10px; font-weight: 500; border: 1px solid rgba(255,255,255,0.12); }
+.order-stats { display: flex; background: var(--card); margin: -24px 16px 0; border-radius: 20px; padding: 16px; box-shadow: var(--shadow-lg); border: 1.5px solid var(--border); position: relative; z-index: 10; }
+.stat-item { flex: 1; text-align: center; cursor: pointer; }
+.stat-item .num { font-size: 20px; font-weight: 700; color: var(--primary); }
+.stat-item .label { font-size: 11px; color: var(--text-sec); margin-top: 2px; }
+.menu-group { margin: 12px 16px; background: var(--card); border-radius: 20px; overflow: hidden; box-shadow: var(--shadow); border: 1.5px solid var(--border); }
+.menu-item { display: flex; justify-content: space-between; align-items: center; padding: 14px 16px; border-bottom: 0.5px solid var(--border); cursor: pointer; }
+.menu-item:last-child { border-bottom: none; }
+.menu-item:active { background: #faf8f5; }
+.menu-item .left { display:flex; align-items:center; gap:10px; font-size:13px; color:var(--text); font-weight:500; }
+.menu-item .left .icon { font-size: 18px; }
+.menu-item .arrow { color: #d1d5db; font-size: 14px; }
+
+/* ===== 公园切换弹窗 ===== */
+.modal-overlay { display: none; position: absolute; inset: 0; background: rgba(0,0,0,0.45); z-index: 200; animation: fadeIn 0.25s; }
+.modal-overlay.show { display: flex; align-items: flex-end; }
+@keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+.park-modal { width: 100%; background: var(--card); border-radius: 24px 24px 0 0; padding: 20px 16px 34px; animation: slideUp 0.35s cubic-bezier(0.16,1,0.3,1); }
+@keyframes slideUp { from { transform: translateY(100%); } to { transform: translateY(0); } }
+.park-modal .handle { width: 36px; height: 4px; background: #d1d5db; border-radius: 2px; margin: 0 auto 14px; }
+.park-modal h3 { font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 14px; color: var(--text); }
+.park-option { display: flex; align-items: center; padding: 12px; border-radius: 16px; cursor: pointer; transition: all 0.2s; margin-bottom: 4px; }
+.park-option:active { background: #f4f4f0; }
+.park-option.active { background: #f4f4f0; border: 1.5px solid var(--primary); }
+.park-option .park-icon { width: 42px; height: 42px; background: var(--border); border-radius: 12px; display: flex; align-items: center; justify-content: center; font-size: 20px; margin-right: 12px; }
+.park-option .park-info h5 { font-size: 14px; font-weight: 500; color: var(--text); }
+.park-option .park-info p { font-size: 11px; color: var(--text-sec); }
+.park-option .check { margin-left: auto; color: var(--primary); font-size: 18px; font-weight: 700; }
+
+/* ===== Toast提示 ===== */
+.toast {
+    position: absolute; top: 60px; left: 50%; transform: translateX(-50%);
+    background: rgba(107, 112, 92, 0.9); color: #fff;
+    padding: 8px 20px; border-radius: 20px;
+    font-size: 13px; font-weight: 500;
+    z-index: 300; opacity: 0;
+    transition: opacity 0.3s;
+    backdrop-filter: blur(8px);
+}
+.toast.show { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="phone-frame">
+    <!-- 极致沉浸：状态栏悬浮在大图背景上 -->
+    <div class="status-bar dark" id="mainStatusBar"><span>22:27</span><span class="status-icons">📶 🔋</span></div>
+    <div class="toast" id="toast"></div>
+
+    <!-- ==================== 首页 (极致通顶视差滚动) ==================== -->
+    <div class="page active" id="page-home">
+        
+        <!-- 1. 极致通顶大图区 (STICKY 视差背景) -->
+        <div class="home-hero-bg">
+            <div class="home-banner-dots"><span class="active"></span><span></span><span></span></div>
+            
+            <!-- 气泡式悬浮位置 HUD -->
+            <div class="float-loc-bar" onclick="showModal()">玉湖公园 <span class="arrow">▾</span></div>
+            
+            <!-- 悬浮广告文字 -->
+            <div class="float-hero-title">
+                <span id="banner-tag">🎪 限时企划</span>
+                <h2 id="banner-title">公园六六生活节 · 开启探索</h2>
+            </div>
+            
+            <!-- 大图轮播滑轨 -->
+            <div class="home-banner-track" id="homeBannerTrack">
+                <div class="home-banner-slide">
+                    <img src="demo_images/park_banner.png" alt="公园全景">
+                    <div class="home-banner-overlay"></div>
+                </div>
+                <div class="home-banner-slide">
+                    <img src="demo_images/camping.png" alt="露营">
+                    <div class="home-banner-overlay"></div>
+                </div>
+                <div class="home-banner-slide">
+                    <img src="demo_images/park_festival.png" alt="嘉年华">
+                    <div class="home-banner-overlay"></div>
+                </div>
+            </div>
+            
+            <!-- 极致沉浸：悬浮胶囊 HUD 分类栏 -->
+            <div class="float-cat-bar">
+                <div class="float-cat-pill" onclick="go('page-camp')">⛺ 营地</div>
+                <div class="float-cat-pill" onclick="go('page-team')">🏢 团建</div>
+                <div class="float-cat-pill" onclick="go('page-study')">👨‍👩‍👧 研学</div>
+                <div class="float-cat-pill" onclick="go('page-food')">🍱 餐食</div>
+            </div>
+        </div>
+
+        <!-- 2. 极致沉浸：抽屉式重叠视差内容区 -->
+        <div class="home-content-drawer">
+            <div class="editorial-stream">
+                <div class="editorial-header">
+                    <h3>本季故事 / Editorial</h3>
+                    <span>玉湖公园 · 2026 夏</span>
+                </div>
+                
+                <!-- 故事卡片 1：双图拼贴排版 -->
+                <div class="story-card" onclick="go('page-camp')">
+                    <div class="story-quote">“今夜，把时间还给星空与篝火。”</div>
+                    <h4 class="story-title">星空露营季 · 湖畔双人帐篷套餐</h4>
+                    <div class="story-collage">
+                        <img src="demo_images/camping.png" alt="露营" class="collage-main">
+                        <img src="demo_images/picnic_food.png" alt="野餐" class="collage-sub">
+                    </div>
+                    <p class="story-desc">远离都市的霓虹，在湖畔草坪听风入眠。我们已为您备好一切——高品质防雨帐篷、防潮气垫、篝火烤肉包与次日清晨的精致早餐，期待与你相遇。</p>
+                    <div class="story-footer">
+                        <span class="story-price"><span class="yen">¥</span>299 <span style="font-size:10px;font-weight:400;color:var(--text-light)">/晚起</span></span>
+                        <span class="story-action">查看故事详情 ›</span>
+                    </div>
+                </div>
+
+                <!-- 故事卡片 2：沉浸通幅大图卡片 -->
+                <div class="story-card-full" onclick="go('page-study')">
+                    <img src="demo_images/kayak.png" alt="皮划艇">
+                    <div class="story-full-overlay">
+                        <span class="tag">🚣 水上探险</span>
+                        <div class="story-full-bottom">
+                            <h4>皮划艇亲子营 · 翻腾的夏日水花</h4>
+                            <span class="price"><span class="yen">¥</span>168<span style="font-size:10px;font-weight:400;opacity:0.8">/人</span></span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 故事卡片 3：单幅大图配合优雅段落 -->
+                <div class="story-card" onclick="go('page-food')">
+                    <div class="story-quote" style="border-left-color: #a3b19b">“野餐，是人类给自然写的一封情书。”</div>
+                    <h4 class="story-title">田园野餐盒 · 2-3人精致户外冷餐</h4>
+                    <div style="border-radius:20px; overflow:hidden; height:140px; margin:10px 0; box-shadow:var(--shadow)">
+                        <img src="demo_images/picnic_food.png" alt="野餐盒" style="width:100%; height:100%; object-fit:cover;">
+                    </div>
+                    <p class="story-desc">由主厨精心挑选的法式手作冷切三明治，搭配当季新鲜红颜草莓拼盘，配上一瓶充满夏日气泡的青提苏打水。专人为您配送至公园指定绿地草坪。</p>
+                    <div class="story-footer">
+                        <span class="story-price"><span class="yen">¥</span>128</span>
+                        <span class="story-action">开始预定 ›</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div style="height:12px"></div>
+    </div>
+
+    <!-- ==================== 营地详情 (极致沉浸大图与Bottom Sheet) ==================== -->
+    <div class="page" id="page-camp">
+        
+        <!-- 极致通顶背景图 -->
+        <div class="detail-hero">
+            <img src="demo_images/camping.png" alt="露营">
+            <div class="detail-hero-overlay"></div>
+            <div class="detail-back" onclick="go('page-home')">‹</div>
+            
+            <div class="detail-intro-card">
+                <h2>星空露营基地</h2>
+                <div class="loc">📍 玉湖公园东区草坪 · 距您1.2km · 营业中</div>
+                <div class="tags"><span>亲子友好</span><span>可生篝火</span><span>免预约停车</span></div>
+            </div>
+        </div>
+
+        <div class="detail-scroll-content">
+            <div class="intro-text-section">
+                <h4>关于营地 / Overview</h4>
+                <p>坐落于玉湖公园东侧的临湖缓坡上，视野开阔，能饱览落日与湖面交相辉映的壮丽景观。营地配有24小时安保与完善的淋浴洗漱配套，提供专业户外装备租赁，是亲子出游、都市微度假的首选之地。</p>
+                <button class="btn-open-reserve" onclick="openReserveSheet()">开始预定行程</button>
+            </div>
+            <div style="height:120px"></div>
+        </div>
+
+        <!-- 极致沉浸：手势 Bottom Sheet 套餐半透明抽屉 -->
+        <div class="sheet-overlay" id="sheetOverlay" onclick="closeReserveSheet()"></div>
+        <div class="bottom-sheet" id="reserveSheet">
+            <div class="sheet-handle-bar" onclick="closeReserveSheet()"></div>
+            <div class="sheet-header">
+                <h3>选择预定方案</h3>
+                <div class="close" onclick="closeReserveSheet()">×</div>
+            </div>
+            
+            <!-- 套餐卡片横滑 -->
+            <div class="sheet-pkg-carousel">
+                <div class="sheet-pkg-card selected" onclick="selectSheetPkg(this, '¥299')">
+                    <h5>🏕️ 双人星空帐篷</h5>
+                    <p>含双人早餐 · 营地全套睡垫防潮垫 · 营灯2盏 · 户外烤肉炭火烤架</p>
+                    <div class="sheet-pkg-bottom">
+                        <span class="price"><span class="yen">¥</span>299</span>
+                    </div>
+                </div>
+                <div class="sheet-pkg-card" onclick="selectSheetPkg(this, '¥599')">
+                    <h5>👨‍👩‍👧 家庭豪华双室帐</h5>
+                    <p>4人超大帐篷 · 全套充气双人床垫 · 露营三餐包 · 赠双人划艇体验</p>
+                    <div class="sheet-pkg-bottom">
+                        <span class="price"><span class="yen">¥</span>599</span>
+                    </div>
+                </div>
+                <div class="sheet-pkg-card" onclick="selectSheetPkg(this, '¥999')">
+                    <h5>🎪 派对超大金字塔天幕</h5>
+                    <p>6-8人天幕带帐篷 · 豪华烧烤自助套餐 · 篝火晚会支持 · 户外投影板</p>
+                    <div class="sheet-pkg-bottom">
+                        <span class="price"><span class="yen">¥</span>999</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pkg-section-title" style="margin-top:10px">选择预定日期</div>
+            <div class="date-chips">
+                <div class="date-chip selected">6月7日 周六</div>
+                <div class="date-chip">6月8日 周日</div>
+                <div class="date-chip">6月14日 周六</div>
+            </div>
+
+            <div class="sheet-action-bar">
+                <div class="total">合计付款 <span class="price" id="sheetPrice"><span class="yen">¥</span>299</span></div>
+                <button class="btn-primary" onclick="showToast('已生成预订账单，待支付 ✓'); closeReserveSheet();">确认预定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ==================== 企业团建 ==================== -->
+    <div class="page" id="page-team">
+        <div class="page-nav"><span class="back" onclick="go('page-home')">‹</span><h3>企业团建</h3></div>
+        <div class="tab-nav">
+            <div class="tab-nav-item active">全部线路</div>
+            <div class="tab-nav-item">半日团建</div>
+            <div class="tab-nav-item">一日团建</div>
+            <div class="tab-nav-item">定制方案</div>
+        </div>
+
+        <div class="team-card" style="margin-top:12px">
+            <div class="card-img"><img src="demo_images/team_building.png" alt="团建"></div>
+            <div class="card-info">
+                <h4>活力团建 · 户外拓展半日营</h4>
+                <div class="team-tags">
+                    <span style="background:#e5e5e0;color:#5c6052">20-50人</span>
+                    <span style="background:#ffe8d6;color:#a36c4b">半天</span>
+                    <span style="background:#f4f4f0;color:#6b705c">含午餐</span>
+                </div>
+            </div>
+        </div>
+        <div class="team-card">
+            <div class="card-img"><img src="demo_images/kayak.png" alt="皮划艇团建"></div>
+            <div class="card-info">
+                <h4>水上挑战赛 · 皮划艇团建</h4>
+                <div class="team-tags">
+                    <span style="background:#e5e5e0;color:#5c6052">10-30人</span>
+                    <span style="background:#ffe8d6;color:#a36c4b">半天</span>
+                    <span style="background:#f4f4f0;color:#6b705c">含下午茶</span>
+                </div>
+            </div>
+        </div>
+        <button class="btn-consult" onclick="showToast('正在跳转企业微信...')">📞 咨询定制方案</button>
+    </div>
+
+    <!-- ==================== 亲子研学 ==================== -->
+    <div class="page" id="page-study">
+        <div class="page-nav"><span class="back" onclick="go('page-home')">‹</span><h3>亲子研学</h3></div>
+        <div class="member-card">
+            <h4>🌟 研学月卡</h4>
+            <p>畅享全月亲子活动 · 无限次免费预约</p>
+            <div class="prices"><span class="price-tag" onclick="showToast('正在前往月卡购买...')">月卡 ¥388</span><span class="price-tag" onclick="showToast('正在前往月卡购买...')">季卡 ¥988 省¥176</span></div>
+        </div>
+        <div class="section-header"><h3>本周活动</h3></div>
+        <div class="activity-card">
+            <div class="act-img"><img src="demo_images/kayak.png" alt="皮划艇"></div>
+            <div class="act-info"><h5>水上皮划艇探险营</h5><div class="desc">6月7日 周六 · 9:00-16:00 · 6-12岁</div><div class="act-bottom"><span class="price">¥168/人</span><button class="btn-sm" onclick="showToast('预约成功 ✓')">立即预约</button></div></div>
+        </div>
+        <div class="activity-card">
+            <div class="act-img"><img src="demo_images/kids_camp.png" alt="自然探索"></div>
+            <div class="act-info"><h5>自然探索 · 植物标本制作</h5><div class="desc">6月8日 周日 · 9:30-12:00 · 4-10岁</div><div class="act-bottom"><div><span class="price">¥128/人</span><span class="free-tag">月卡免费</span></div><button class="btn-sm" onclick="showToast('预约成功 ✓')">立即预约</button></div></div>
+        </div>
+    </div>
+
+    <!-- ==================== 公园餐食 ==================== -->
+    <div class="page" id="page-food">
+        <div class="page-nav"><span class="back" onclick="go('page-home')">‹</span><h3>公园餐食</h3></div>
+        <div class="tab-nav">
+            <div class="tab-nav-item active">野餐盒子</div>
+            <div class="tab-nav-item">烤肉套餐</div>
+            <div class="tab-nav-item">现场餐食</div>
+        </div>
+        <div class="food-card" style="margin-top:12px">
+            <div class="food-img"><img src="demo_images/picnic_food.png" alt="野餐盒"></div>
+            <div class="food-info"><div><h5>田园野餐盒（2-3人）</h5><div class="sub">三明治 · 水果 · 沙拉 · 饮品 · 甜点</div></div><div class="price"><span class="yen">¥</span>128</div></div>
+        </div>
+        <div class="food-card">
+            <div class="food-img"><img src="demo_images/camping.png" alt="烤肉"></div>
+            <div class="food-info"><div><h5>豪华烤肉盒子（4-6人）</h5><div class="sub">烤鸡 · 牛排 · 香肠 · 蔬菜 · 调料 · 炭火</div></div><div class="price"><span class="yen">¥</span>298</div></div>
+        </div>
+        <div class="food-tip">💡 野餐盒子需提前1天预定，我们将送达您指定的公园位置</div>
+    </div>
+
+    <!-- ==================== 个人中心 ==================== -->
+    <div class="page" id="page-profile">
+        <div class="profile-hero">
+            <div class="avatar">👤</div>
+            <div class="name">张小明</div>
+            <span class="member-badge">🌟 研学月卡会员</span>
+        </div>
+        <div class="order-stats">
+            <div class="stat-item"><div class="num">2</div><div class="label">待使用</div></div>
+            <div class="stat-item"><div class="num">8</div><div class="label">已完成</div></div>
+            <div class="stat-item"><div class="num">0</div><div class="label">售后</div></div>
+            <div class="stat-item"><div class="num">3</div><div class="label">收藏</div></div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item"><span class="left"><span class="icon">📋</span>我的订单</span><span class="arrow">›</span></div>
+            <div class="menu-item"><span class="left"><span class="icon">🎫</span>我的月卡</span><span class="arrow">›</span></div>
+            <div class="menu-item"><span class="left"><span class="icon">📱</span>我的核销码</span><span class="arrow">›</span></div>
+            <div class="menu-item"><span class="left"><span class="icon">⭐</span>我的收藏</span><span class="arrow">›</span></div>
+        </div>
+        <div class="menu-group">
+            <div class="menu-item"><span class="left"><span class="icon">🎁</span>优惠券</span><span class="arrow">›</span></div>
+            <div class="menu-item"><span class="left"><span class="icon">💬</span>联系客服</span><span class="arrow">›</span></div>
+        </div>
+    </div>
+
+    <!-- Tab栏 -->
+    <div class="tab-bar">
+        <div class="tab-item active" onclick="tabSwitch(this,'page-home')"><span class="icon">🏠</span><span class="label">首页</span></div>
+        <div class="tab-item" onclick="tabSwitch(this,'page-study')"><span class="icon">📚</span><span class="label">研学</span></div>
+        <div class="tab-item" onclick="tabSwitch(this,'page-food')"><span class="icon">🍱</span><span class="label">餐食</span></div>
+        <div class="tab-item" onclick="tabSwitch(this,'page-profile')"><span class="icon">👤</span><span class="label">我的</span></div>
+    </div>
+
+    <!-- 公园切换弹窗 -->
+    <div class="modal-overlay" id="modal" onclick="hideModal()">
+        <div class="park-modal" onclick="event.stopPropagation()">
+            <div class="handle"></div>
+            <h3>切换公园</h3>
+            <div class="park-option active" onclick="pickPark(this,'玉湖公园')"><div class="park-icon">🌳</div><div class="park-info"><h5>玉湖公园</h5><p>距您 1.2km · 营业中</p></div><span class="check">✓</span></div>
+            <div class="park-option" onclick="pickPark(this,'西溪湿地公园')"><div class="park-icon">🌊</div><div class="park-info"><h5>西溪湿地公园</h5><p>距您 5.8km · 营业中</p></div></div>
+            <div class="park-option" onclick="pickPark(this,'太子湾公园')"><div class="park-icon">🌸</div><div class="park-info"><h5>太子湾公园</h5><p>距您 8.3km · 营业中</p></div></div>
+            <div class="park-option" onclick="pickPark(this,'良渚文化公园')"><div class="park-icon">🏛️</div><div class="park-info"><h5>良渚文化公园</h5><p>距您 12.5km · 营业中</p></div></div>
+        </div>
+    </div>
+</div>
+
+<script>
+const pages = ['page-home','page-camp','page-team','page-study','page-food','page-profile'];
+const tabMap = {'page-home':0,'page-study':1,'page-food':2,'page-profile':3};
+
+function go(id) {
+    document.querySelectorAll('.page').forEach(p => { p.classList.remove('active'); p.scrollTop = 0; });
+    document.getElementById(id).classList.add('active');
+    
+    // 控制状态栏反色：如果大图通顶页面，用白字状态栏；常规白底页面，用深字状态栏
+    const isImmersive = ['page-home', 'page-camp'].includes(id);
+    const statusBar = document.getElementById('mainStatusBar');
+    if (statusBar) {
+        statusBar.style.color = isImmersive ? '#fff' : '#2f3e36';
+    }
+
+    if (tabMap[id] !== undefined) {
+        document.querySelectorAll('.tab-item').forEach((t,i) => t.classList.toggle('active', i===tabMap[id]));
+    }
+}
+
+function tabSwitch(el, id) {
+    document.querySelectorAll('.tab-item').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    go(id);
+}
+
+function showModal() { document.getElementById('modal').classList.add('show'); }
+function hideModal() { document.getElementById('modal').classList.remove('show'); }
+
+function pickPark(el, name) {
+    document.querySelectorAll('.park-option').forEach(p => { p.classList.remove('active'); const c = p.querySelector('.check'); if(c) c.remove(); });
+    el.classList.add('active');
+    const ck = document.createElement('span'); ck.className='check'; ck.textContent='✓'; el.appendChild(ck);
+    document.querySelector('.float-loc-bar').innerHTML = `${name} <span class="arrow">▾</span>`;
+    setTimeout(hideModal, 250);
+    showToast(`已切换至 ${name}`);
+}
+
+// 极致沉浸：套餐上滑抽屉控制器
+function openReserveSheet() {
+    document.getElementById('sheetOverlay').classList.add('show');
+    document.getElementById('reserveSheet').classList.add('show');
+}
+function closeReserveSheet() {
+    document.getElementById('sheetOverlay').classList.remove('show');
+    document.getElementById('reserveSheet').classList.remove('show');
+}
+function selectSheetPkg(el, price) {
+    document.querySelectorAll('.sheet-pkg-card').forEach(card => card.classList.remove('selected'));
+    el.classList.add('selected');
+    document.getElementById('sheetPrice').innerHTML = `<span class="yen">¥</span>${price.replace('¥','')}`;
+}
+
+// 日期选择
+document.querySelectorAll('.date-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+        document.querySelectorAll('.date-chip').forEach(c => c.classList.remove('selected'));
+        chip.classList.add('selected');
+    });
+});
+
+// Banner 轮播 (大图通顶广告视差效果)
+const bannerTags = ["🎪 限时企划", "⛺ 星空露营", "🎉 狂欢市集"];
+const bannerTitles = ["公园六六生活节 · 开启探索", "夏日限定双人帐篷套餐 ¥299起", "夏日嘉年华 · 音乐市集全家出动"];
+
+let bannerIdx = 0;
+setInterval(() => {
+    bannerIdx = (bannerIdx + 1) % 3;
+    const track = document.getElementById('homeBannerTrack');
+    if (track) {
+        track.style.transform = `translateX(-${bannerIdx * 100}%)`;
+        document.getElementById('banner-tag').textContent = bannerTags[bannerIdx];
+        document.getElementById('banner-title').textContent = bannerTitles[bannerIdx];
+        document.querySelectorAll('.home-banner-dots span').forEach((d,i) => d.classList.toggle('active', i===bannerIdx));
+    }
+}, 4000);
+
+// Toast提示
+function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 1800);
+}
+</script>
+</body>
+</html>
