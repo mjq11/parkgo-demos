@@ -1,0 +1,6 @@
+# 忽略所有文件
+*
+
+# 排除 .gitignore 和 README.md
+!.gitignore
+!README.md
